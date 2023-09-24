@@ -17,6 +17,37 @@ struct ShapeColorCombination {
     string color;
 };
 
+Mat filterColor(Mat image, string color)
+{
+    Mat img_hsv, img_mask;
+    Scalar lower, upper;
+
+    // Convert the image to HSV format.
+    cvtColor(image, img_hsv, COLOR_BGR2HSV);
+
+    if (color == "green") {
+        lower = Scalar(38, 105, 0);
+        upper = Scalar(75, 255, 188);
+    } else if (color == "pink") {
+        lower = Scalar(80, 170, 0);
+        upper = Scalar(179, 255, 255);
+    } else if (color == "orange") {
+        lower = Scalar(0, 170, 0);
+        upper = Scalar(22, 255, 255);
+    } else if (color == "yellow") {
+        lower = Scalar(22, 170, 0);
+        upper = Scalar(38, 255, 255);
+    } else {
+        cerr << "Invalid color specified." << endl;
+        return Mat(); // Return an empty Mat in case of invalid color
+    }
+
+    // Create a color mask
+    inRange(img_hsv, lower, upper, img_mask);
+
+    return img_mask;
+}
+
 // Function to process the image before use.
 Mat processingImage(Mat image) 
 {
@@ -34,7 +65,7 @@ Mat processingImage(Mat image)
     return img_dilated;
 }
 
-void getContours(Mat &img_processed, Mat &image)
+void getContours(Mat &img_processed, Mat &image, string shape)
 {
     string objectType;
 
@@ -78,7 +109,10 @@ void getContours(Mat &img_processed, Mat &image)
             objectType = "circle";
         } 
 
-        drawContours(image, conPoly, i, Scalar(0, 0, 0), 2); 
+        if (objectType == shape) {
+            // Draw the contour
+            drawContours(image, conPoly, i, Scalar(0, 0, 0), 2); 
+        }
     }
 }
 
@@ -93,7 +127,7 @@ int main(int argc, char** argv )
         cout << "Could not open or find the image.\n";
         return -1; // unsuccessful
     }
-    
+
     // Vector to store the saved shape and color combinations
     vector<ShapeColorCombination> combinations;
 
@@ -136,13 +170,17 @@ int main(int argc, char** argv )
         cin.clear();
     }
 
-    Mat img_processed = processingImage(image);
+    Mat img_colorfiltered, img_processed;
 
-    getContours(img_processed, image);
+    for (const auto& ShapeColorCombination : combinations) {
+        std::cout << "Desired Shape: " << ShapeColorCombination.shape << ", Desired Color: " << ShapeColorCombination.color << std::endl;
+        img_colorfiltered = filterColor(image, ShapeColorCombination.color);
+        img_processed = processingImage(img_colorfiltered);
+        getContours(img_processed, image, ShapeColorCombination.shape);
+    }
 
     // Show the image in window.
     imshow("image", image);
-    imshow("processed image", img_processed);
     waitKey(0);
 
     return 0;
