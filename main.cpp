@@ -131,6 +131,104 @@ void getContours(Mat &img_processed, Mat &image, string shape)
     }
 }
 
+bool processShapeColor(const string& shape, const string& color, vector<ShapeColorCombination>& combinations) {
+    // Validate the "shape" component
+    if (isValidShape(shape)) {
+        // Validate the "color" component
+        if (isValidColor(color)) {
+            // Save the combination
+            ShapeColorCombination combination;
+            combination.shape = shape;
+            combination.color = color;
+            combinations.push_back(combination);
+            cout << "Shape: " << shape << ", Color: " << color << endl;
+            return true;
+        } else {
+            cerr << "Invalid color. Supported colors: green, pink, orange, yellow." << endl;
+        }
+    } else {
+        cerr << "Invalid shape. Supported shapes: circle, half-circle, rectangle, square, triangle." << endl;
+    }
+    return false;
+}
+
+bool processFileInput(const char* filename, vector<ShapeColorCombination>& combinations) {
+    ifstream file(filename);
+
+    if (!file) {
+        cerr << "Error: Unable to open file." << endl;
+        return false;
+    }
+
+    string line;
+    while (getline(file, line)) {
+        // Check if the line is empty or starts with a #
+        if (line.empty() || line[0] == '#') {
+            continue; // Skip empty lines and comments
+        }
+
+        stringstream ss(line);
+        string shape, color;
+
+        if (ss >> shape >> color) {
+            processShapeColor(shape, color, combinations);
+        } else {
+            cerr << "Invalid message format. Please use '[shape] [color]' format." << endl;
+        }
+    }
+
+    file.close();
+    return true;
+}
+
+void processInteractiveInput(vector<ShapeColorCombination>& combinations) {
+    string input;
+    while (true) {
+        cout << "Enter a message ([shape] [color], or 'exit' to quit): ";
+        getline(cin, input);
+
+        if (input == "exit") {
+            cout << "Exiting the program." << endl;
+            break;
+        } else {
+            stringstream ss(input);
+            string shape, color;
+
+            if (ss >> shape >> color) {
+                processShapeColor(shape, color, combinations);
+            } else {
+                cerr << "Invalid message format. Please use '[shape] [color]' format." << endl;
+            }
+        }
+        // Clear the input buffer
+        cin.clear();
+    }
+}
+
+void processShapeColorCombination(const ShapeColorCombination& combination, Mat& image) {
+    Mat img_colorfiltered, img_processed;
+
+    clock_t start = clock(); // Start measuring time
+    cout << "Desired Shape: " << combination.shape << ", Desired Color: " << combination.color << endl;
+    img_colorfiltered = filterColor(image, combination.color);
+    img_processed = processingImage(img_colorfiltered);
+    getContours(img_processed, image, combination.shape);
+    clock_t end = clock(); // Stop measuring time
+
+    // Calculate and print the execution time in seconds
+    double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
+    cout << "Execution Time: " << elapsed_time << " seconds" << endl;
+}
+
+void processShapeColorCombinations(const vector<ShapeColorCombination>& combinations, Mat& image) {
+    // Process each ShapeColorCombination
+    for (const auto& combination : combinations) {
+        processShapeColorCombination(combination, image);
+    }
+}
+
+
+
 int main(int argc, char** argv )
 {
     // Read an image.
@@ -149,101 +247,16 @@ int main(int argc, char** argv )
     // Check if a filename is provided as a command-line argument
     if (argc > 1) {
         const char* filename = argv[1];
-        ifstream file(filename);
-        
-        if (!file) {
-            cerr << "Error: Unable to open file." << endl;
+        if (!processFileInput(filename, combinations)) {
             return 1;
-        }
-
-        string line;
-        while (getline(file, line)) {
-            // Check if the line is empty or starts with a #
-            if (line.empty() || line[0] == '#') {
-                continue; // Skip empty lines and comments
-            }
-            
-            stringstream ss(line);
-            string shape, color;
-
-            if (ss >> shape >> color) {
-                // Validate the "shape" component
-                if (isValidShape(shape)) {
-                    // Validate the "color" component
-                    if (isValidColor(color)) {
-                        // Save the combination
-                        ShapeColorCombination combination;
-                        combination.shape = shape;
-                        combination.color = color;
-                        combinations.push_back(combination);
-                        std::cout << "Shape: " << shape << ", Color: " << color << std::endl;
-                    } else {
-                        std::cerr << "Invalid color. Supported colors: green, pink, orange, yellow." << std::endl;
-                    }
-                } else {
-                    std::cerr << "Invalid shape. Supported shapes: circle, half-circle, rectangle, square, triangle." << std::endl;
-                }
-            } else {
-                std::cerr << "Invalid message format. Please use '[shape] [color]' format." << std::endl;
-            }
-        }
-
-        file.close();
+        } 
     } else {
-        // Interactive mode    
-        string input;
-        while (true)
-        {
-            cout << "Enter a message ([shape] [color], or 'exit' to quit): ";
-            getline(cin, input);
-            
-            if (input == "exit") {
-                cout << "Exiting the program." << endl;
-                break;
-            } else {
-                stringstream ss(input);
-                string shape, color;
-
-                if (ss >> shape >> color) {
-                    // Validate the "shape" component
-                    if (isValidShape(shape)) {
-                        // Validate the "color" component
-                        if (isValidColor(color)) {
-                            // Save the combination
-                            ShapeColorCombination combination;
-                            combination.shape = shape;
-                            combination.color = color;
-                            combinations.push_back(combination);
-                            std::cout << "Shape: " << shape << ", Color: " << color << std::endl;
-                        } else {
-                            std::cerr << "Invalid color. Supported colors: green, pink, orange, yellow." << std::endl;
-                        }
-                    } else {
-                        std::cerr << "Invalid shape. Supported shapes: circle, half-circle, rectangle, square, triangle." << std::endl;
-                    }
-                } else {
-                    std::cerr << "Invalid message format. Please use '[shape] [color]' format." << std::endl;
-                }
-            }
-            // Clear the input buffer
-            cin.clear();
-        }
+        // Interactive mode
+        processInteractiveInput(combinations);
     }
 
-    Mat img_colorfiltered, img_processed;
-
-    for (const auto& ShapeColorCombination : combinations) {
-        clock_t start = clock(); // Start measuring time
-        std::cout << "Desired Shape: " << ShapeColorCombination.shape << ", Desired Color: " << ShapeColorCombination.color << std::endl;
-        img_colorfiltered = filterColor(image, ShapeColorCombination.color);
-        img_processed = processingImage(img_colorfiltered);
-        getContours(img_processed, image, ShapeColorCombination.shape);
-        clock_t end = clock(); // Stop measuring time
-
-        // Calculate and print the execution time in seconds
-        double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
-        cout << "Execution Time: " << elapsed_time << " seconds" << endl;
-    }
+    // Find all provided shape & color combinations in the image
+    processShapeColorCombinations(combinations, image);
 
     // Show the image in window.
     imshow("image", image);
