@@ -112,6 +112,19 @@ void getContours(Mat &img_processed, Mat &image, string shape)
         if (objectType == shape) {
             // Draw the contour
             drawContours(image, conPoly, i, Scalar(0, 0, 0), 2); 
+
+            // Draw a circle at the middle of the shape
+            circle(image, Point(posX, posY), 5, Scalar(0, 0, 0), -1); // -1 for a filled circle
+
+            // Display the X and Y coordinates at the circle
+            stringstream ss;
+            ss << "X: " << posX << ", Y: " << posY;
+            cout << ss.str() << endl;
+            putText(image, ss.str(), Point(posX - 50, posY - 10), FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 0, 0), 1);
+
+            // Calculate the surface area of each contour and display it
+            double area = contourArea(contours[i]);
+            cout << "Contour " << shape << " Area: " << area << endl;
         }
     }
 }
@@ -173,10 +186,16 @@ int main(int argc, char** argv )
     Mat img_colorfiltered, img_processed;
 
     for (const auto& ShapeColorCombination : combinations) {
+        clock_t start = clock(); // Start measuring time
         std::cout << "Desired Shape: " << ShapeColorCombination.shape << ", Desired Color: " << ShapeColorCombination.color << std::endl;
         img_colorfiltered = filterColor(image, ShapeColorCombination.color);
         img_processed = processingImage(img_colorfiltered);
         getContours(img_processed, image, ShapeColorCombination.shape);
+        clock_t end = clock(); // Stop measuring time
+
+        // Calculate and print the execution time in seconds
+        double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
+        cout << "Execution Time: " << elapsed_time << " seconds" << endl;
     }
 
     // Show the image in window.
