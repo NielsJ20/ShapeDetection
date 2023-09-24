@@ -4,6 +4,19 @@
 using namespace std;
 using namespace cv;
 
+bool isValidShape(const string& shape) {
+    return shape == "circle" || shape == "half-circle" || shape == "rectangle" || shape == "square" || shape == "triangle";
+}
+
+bool isValidColor(const string& color) {
+    return color == "green" || color == "pink" || color == "orange" || color == "yellow";
+}
+
+struct ShapeColorCombination {
+    string shape;
+    string color;
+};
+
 // Function to process the image before use.
 Mat processingImage(Mat image) 
 {
@@ -73,6 +86,55 @@ int main(int argc, char** argv )
 {
     // Read an image.
     Mat image = imread("../Neon_shapes.png");
+
+    // Check for no data
+    if (! image.data ) 
+    {
+        cout << "Could not open or find the image.\n";
+        return -1; // unsuccessful
+    }
+    
+    // Vector to store the saved shape and color combinations
+    vector<ShapeColorCombination> combinations;
+
+    // Interactive mode    
+    string input;
+    while (true)
+    {
+        cout << "Enter a message ([shape] [color], or 'exit' to quit): ";
+        getline(cin, input);
+        
+        if (input == "exit") {
+            cout << "Exiting the program." << endl;
+            break;
+        } else {
+            stringstream ss(input);
+            string shape, color;
+
+            if (ss >> shape >> color) {
+                // Validate the "shape" component
+                if (isValidShape(shape)) {
+                    // Validate the "color" component
+                    if (isValidColor(color)) {
+                        // Save the combination
+                        ShapeColorCombination combination;
+                        combination.shape = shape;
+                        combination.color = color;
+                        combinations.push_back(combination);
+                        std::cout << "Shape: " << shape << ", Color: " << color << std::endl;
+                    } else {
+                        std::cerr << "Invalid color. Supported colors: green, pink, orange, yellow." << std::endl;
+                    }
+                } else {
+                    std::cerr << "Invalid shape. Supported shapes: circle, half-circle, rectangle, square, triangle." << std::endl;
+                }
+            } else {
+                std::cerr << "Invalid message format. Please use '[shape] [color]' format." << std::endl;
+            }
+        }
+        // Clear the input buffer
+        cin.clear();
+    }
 
     Mat img_processed = processingImage(image);
 
