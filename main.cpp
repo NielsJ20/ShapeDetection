@@ -6,6 +6,8 @@
 using namespace std;
 using namespace cv;
 
+clock_t start; // Start measuring time
+
 bool isValidShape(const string& shape) {
     return shape == "circle" || shape == "half-circle" || shape == "rectangle" || shape == "square" || shape == "triangle";
 }
@@ -80,53 +82,63 @@ void getContours(Mat &img_processed, Mat &image, string shape)
 
     for (size_t i = 0; i < contours.size(); i++)
     {
-        // Approximate the contour to reduce the number of vertices
-        float epsilon = 0.03 * arcLength(contours[i], true);
-        approxPolyDP(contours[i], conPoly[i], epsilon, true);
-        
-        // Calculate the aspect ratio of the bounding rectangle
-        boundRect[i] = boundingRect(contours[i]);
-        float aspectRatio = (float)boundRect[i].width / (float)boundRect[i].height;
+        // Calculate the surface area
+        double area = contourArea(contours[i]);
 
-        // Determine the middle of the contour
-        Moments M = moments(contours[i]);
-        int posX = M.m10 / M.m00;
-        int posY = M.m01 / M.m00; 
+        if (area > 1000)
+        {
+            // Approximate the contour to reduce the number of vertices
+            float epsilon = 0.03 * arcLength(contours[i], true);
+            approxPolyDP(contours[i], conPoly[i], epsilon, true);
+            
+            // Calculate the aspect ratio of the bounding rectangle
+            boundRect[i] = boundingRect(contours[i]);
+            float aspectRatio = (float)boundRect[i].width / (float)boundRect[i].height;
 
-        // Determine the number of corners (vertices)
-        int numCorners = static_cast<int>(conPoly[i].size());
+            // Determine the middle of the contour
+            Moments M = moments(contours[i]);
+            int posX = M.m10 / M.m00;
+            int posY = M.m01 / M.m00; 
 
-        // Based on the characteristics, classify the shape
-        if (numCorners == 3) {
-            objectType = "triangle";
-        } else if (numCorners == 4) {
-            if (aspectRatio >= 0.95 && aspectRatio <= 1.05) {
-                objectType = "square";
-            } else {
-                objectType = "rectangle";
+            // Determine the number of corners (vertices)
+            int numCorners = static_cast<int>(conPoly[i].size());
+
+            // Based on the characteristics, classify the shape
+            if (numCorners == 3) {
+                objectType = "triangle";
+            } else if (numCorners == 4) {
+                if (aspectRatio >= 0.95 && aspectRatio <= 1.05) {
+                    objectType = "square";
+                } else {
+                    objectType = "rectangle";
+                }
+            } else if (numCorners > 4 && numCorners < 6) {
+                objectType = "half-circle";
+            } else if (numCorners >= 6) {
+                objectType = "circle";
+            } 
+
+            if (objectType == shape) {
+                // Draw the contour
+                drawContours(image, conPoly, i, Scalar(0, 0, 0), 2); 
+
+                // Draw a circle at the middle of the shape
+                circle(image, Point(posX, posY), 5, Scalar(0, 0, 0), -1); // -1 for a filled circle
+
+                // Display the X and Y coordinates at the circle
+                stringstream ss;
+                ss << "X: " << posX << ", Y: " << posY;
+                cout << ss.str() << endl;
+                putText(image, ss.str(), Point(posX - 50, posY - 10), FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 0, 0), 1);
+
+                // Display the surface area
+                cout << "Contour " << shape << " Area: " << area << endl;
+
+                // Calculate and print the execution time in seconds
+                clock_t end = clock(); // Stop measuring time
+                double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
+                cout << "Execution Time: " << elapsed_time << " seconds" << endl;
             }
-        } else if (numCorners > 4 && numCorners < 6) {
-            objectType = "half-circle";
-        } else if (numCorners >= 6) {
-            objectType = "circle";
-        } 
-
-        if (objectType == shape) {
-            // Draw the contour
-            drawContours(image, conPoly, i, Scalar(0, 0, 0), 2); 
-
-            // Draw a circle at the middle of the shape
-            circle(image, Point(posX, posY), 5, Scalar(0, 0, 0), -1); // -1 for a filled circle
-
-            // Display the X and Y coordinates at the circle
-            stringstream ss;
-            ss << "X: " << posX << ", Y: " << posY;
-            cout << ss.str() << endl;
-            putText(image, ss.str(), Point(posX - 50, posY - 10), FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 0, 0), 1);
-
-            // Calculate the surface area of each contour and display it
-            double area = contourArea(contours[i]);
-            cout << "Contour " << shape << " Area: " << area << endl;
         }
     }
 }
@@ -208,16 +220,12 @@ void processInteractiveInput(vector<ShapeColorCombination>& combinations) {
 void processShapeColorCombination(const ShapeColorCombination& combination, Mat& image) {
     Mat img_colorfiltered, img_processed;
 
-    clock_t start = clock(); // Start measuring time
-    cout << "Desired Shape: " << combination.shape << ", Desired Color: " << combination.color << endl;
+    // clock_t start = clock(); // Start measuring time
+    // cout << "Desired Shape: " << combination.shape << ", Desired Color: " << combination.color << endl;
     img_colorfiltered = filterColor(image, combination.color);
     img_processed = processingImage(img_colorfiltered);
     getContours(img_processed, image, combination.shape);
-    clock_t end = clock(); // Stop measuring time
-
-    // Calculate and print the execution time in seconds
-    double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
-    cout << "Execution Time: " << elapsed_time << " seconds" << endl;
+    // clock_t end = clock(); // Stop measuring time
 }
 
 void processShapeColorCombinations(const vector<ShapeColorCombination>& combinations, Mat& image) {
@@ -231,6 +239,16 @@ void processShapeColorCombinations(const vector<ShapeColorCombination>& combinat
 
 int main(int argc, char** argv )
 {
+    VideoCapture cap(0); //Declaring an object to capture stream of frames from default camera
+
+    //This section prompt an error message if no video stream is found//
+    if (!cap.isOpened())
+    {
+        cout << "No video stream detected" << endl;
+        system("pause");
+        return-1;
+    }
+
     // Read an image.
     Mat image = imread("../Neon_shapes.png");
 
@@ -255,12 +273,32 @@ int main(int argc, char** argv )
         processInteractiveInput(combinations);
     }
 
+    start = clock(); // Start measuring time
+
+    while (true) 
+    {
+        Mat frame;
+        cap >> frame;
+        if (frame.empty()){ 
+            break;
+        }
+        processShapeColorCombinations(combinations, frame);
+
+        imshow("Video Player", frame);
+
+        char c = (char)waitKey(25);//Allowing 25 milliseconds frame processing time and initiating break condition
+        if (c == 27){ //If 'Esc' is entered break the loop//
+            break;
+        }
+    }
+    cap.release(); //Releasing the buffer memory
+
     // Find all provided shape & color combinations in the image
-    processShapeColorCombinations(combinations, image);
+    // processShapeColorCombinations(combinations, image);
 
     // Show the image in window.
-    imshow("image", image);
-    waitKey(0);
+    // imshow("image", image);
+    // waitKey(0);
 
     return 0;
 }
