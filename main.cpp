@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <opencv2/opencv.hpp>
 
 using namespace std;
@@ -144,18 +146,24 @@ int main(int argc, char** argv )
     // Vector to store the saved shape and color combinations
     vector<ShapeColorCombination> combinations;
 
-    // Interactive mode    
-    string input;
-    while (true)
-    {
-        cout << "Enter a message ([shape] [color], or 'exit' to quit): ";
-        getline(cin, input);
+    // Check if a filename is provided as a command-line argument
+    if (argc > 1) {
+        const char* filename = argv[1];
+        ifstream file(filename);
         
-        if (input == "exit") {
-            cout << "Exiting the program." << endl;
-            break;
-        } else {
-            stringstream ss(input);
+        if (!file) {
+            cerr << "Error: Unable to open file." << endl;
+            return 1;
+        }
+
+        string line;
+        while (getline(file, line)) {
+            // Check if the line is empty or starts with a #
+            if (line.empty() || line[0] == '#') {
+                continue; // Skip empty lines and comments
+            }
+            
+            stringstream ss(line);
             string shape, color;
 
             if (ss >> shape >> color) {
@@ -179,8 +187,47 @@ int main(int argc, char** argv )
                 std::cerr << "Invalid message format. Please use '[shape] [color]' format." << std::endl;
             }
         }
-        // Clear the input buffer
-        cin.clear();
+
+        file.close();
+    } else {
+        // Interactive mode    
+        string input;
+        while (true)
+        {
+            cout << "Enter a message ([shape] [color], or 'exit' to quit): ";
+            getline(cin, input);
+            
+            if (input == "exit") {
+                cout << "Exiting the program." << endl;
+                break;
+            } else {
+                stringstream ss(input);
+                string shape, color;
+
+                if (ss >> shape >> color) {
+                    // Validate the "shape" component
+                    if (isValidShape(shape)) {
+                        // Validate the "color" component
+                        if (isValidColor(color)) {
+                            // Save the combination
+                            ShapeColorCombination combination;
+                            combination.shape = shape;
+                            combination.color = color;
+                            combinations.push_back(combination);
+                            std::cout << "Shape: " << shape << ", Color: " << color << std::endl;
+                        } else {
+                            std::cerr << "Invalid color. Supported colors: green, pink, orange, yellow." << std::endl;
+                        }
+                    } else {
+                        std::cerr << "Invalid shape. Supported shapes: circle, half-circle, rectangle, square, triangle." << std::endl;
+                    }
+                } else {
+                    std::cerr << "Invalid message format. Please use '[shape] [color]' format." << std::endl;
+                }
+            }
+            // Clear the input buffer
+            cin.clear();
+        }
     }
 
     Mat img_colorfiltered, img_processed;
