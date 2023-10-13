@@ -82,7 +82,7 @@ void ShapeColorDetector::getContours(cv::Mat &img_processed, cv::Mat &image, con
         if (area > 1000)
         {
             // Approximate the contour to reduce the number of vertices
-            float epsilon = 0.03 * arcLength(contours[i], true);
+            double epsilon = 0.03 * arcLength(contours[i], true);
             approxPolyDP(contours[i], conPoly[i], epsilon, true);
 
             // Calculate the aspect ratio of the bounding rectangle
@@ -91,8 +91,8 @@ void ShapeColorDetector::getContours(cv::Mat &img_processed, cv::Mat &image, con
 
             // Determine the middle of the contour
             Moments M = moments(contours[i]);
-            int posX = M.m10 / M.m00;
-            int posY = M.m01 / M.m00;
+            int posX = static_cast<int>(M.m10 / M.m00);
+            int posY = static_cast<int>(M.m01 / M.m00);
 
             // Determine the number of corners (vertices)
             int numCorners = static_cast<int>(conPoly[i].size());
@@ -125,7 +125,7 @@ void ShapeColorDetector::getContours(cv::Mat &img_processed, cv::Mat &image, con
             if (objectType == shape)
             {
                 // Draw the contour
-                drawContours(image, conPoly, i, Scalar(0, 0, 0), 2);
+                drawContours(image, conPoly, static_cast<int>(i), Scalar(0, 0, 0), 2);
 
                 // Draw a circle at the middle of the shape
                 circle(image, Point(posX, posY), 5, Scalar(0, 0, 0), -1); // -1 for a filled circle

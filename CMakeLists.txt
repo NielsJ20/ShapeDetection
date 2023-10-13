@@ -1,6 +1,9 @@
 # cmake needs this line
 cmake_minimum_required(VERSION 3.5)
 
+# Show compiler output
+set(CMAKE_VERBOSE_MAKEFILE on)
+
 # Define project name
 project( ImageDetection )
 
@@ -14,3 +17,6 @@ add_executable( OpenCVImageDetection main.cpp ShapeColorDetector.cpp)
 
 # Link your application with OpenCV libraries
 target_link_libraries( OpenCVImageDetection ${OpenCV_LIBS} )
+
+# Add compiler flags
+target_compile_options(OpenCVImageDetection PRIVATE -Werror -Wall -Wextra)
