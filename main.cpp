@@ -1,304 +1,53 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
 #include <opencv2/opencv.hpp>
+#include "ShapeColorDetector.h"
 
 using namespace std;
 using namespace cv;
 
-clock_t start; // Start measuring time
-
-bool isValidShape(const string& shape) {
-    return shape == "circle" || shape == "half-circle" || shape == "rectangle" || shape == "square" || shape == "triangle";
-}
-
-bool isValidColor(const string& color) {
-    return color == "green" || color == "pink" || color == "orange" || color == "yellow";
-}
-
-struct ShapeColorCombination {
-    string shape;
-    string color;
-};
-
-Mat filterColor(Mat image, string color)
+int main(int argc, char **argv)
 {
-    Mat img_hsv, img_mask;
-    Scalar lower, upper;
+    ShapeColorDetector detector;
 
-    // Convert the image to HSV format.
-    cvtColor(image, img_hsv, COLOR_BGR2HSV);
-
-    if (color == "green") {
-        lower = Scalar(38, 105, 0);
-        upper = Scalar(75, 255, 188);
-    } else if (color == "pink") {
-        lower = Scalar(80, 170, 0);
-        upper = Scalar(179, 255, 255);
-    } else if (color == "orange") {
-        lower = Scalar(0, 170, 0);
-        upper = Scalar(22, 255, 255);
-    } else if (color == "yellow") {
-        lower = Scalar(22, 170, 0);
-        upper = Scalar(38, 255, 255);
-    } else {
-        cerr << "Invalid color specified." << endl;
-        return Mat(); // Return an empty Mat in case of invalid color
-    }
-
-    // Create a color mask
-    inRange(img_hsv, lower, upper, img_mask);
-
-    return img_mask;
-}
-
-// Function to process the image before use.
-Mat processingImage(Mat image) 
-{
-    Mat img_blurred, img_canny, img_dilated;
-    // Apply gaussian blur.
-    GaussianBlur(image, img_blurred, Size(3, 3), 3, 0);
-
-    // Apply Canny.
-    Canny(img_blurred, img_canny, 25, 75);
-
-    // Apply dilation
-    Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
-    dilate(img_canny, img_dilated, kernel);
-
-    return img_dilated;
-}
-
-void getContours(Mat &img_processed, Mat &image, string shape)
-{
-    string objectType;
-
-    vector<vector<Point>> contours;
-    vector<Vec4i> hierarchy;
-    findContours(img_processed, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-
-    vector<vector<Point>> conPoly(contours.size());
-    vector<Rect> boundRect(contours.size());
-
-    for (size_t i = 0; i < contours.size(); i++)
+    if (argc > 1)
     {
-        // Calculate the surface area
-        double area = contourArea(contours[i]);
-
-        if (area > 1000)
-        {
-            // Approximate the contour to reduce the number of vertices
-            float epsilon = 0.03 * arcLength(contours[i], true);
-            approxPolyDP(contours[i], conPoly[i], epsilon, true);
-            
-            // Calculate the aspect ratio of the bounding rectangle
-            boundRect[i] = boundingRect(contours[i]);
-            float aspectRatio = (float)boundRect[i].width / (float)boundRect[i].height;
-
-            // Determine the middle of the contour
-            Moments M = moments(contours[i]);
-            int posX = M.m10 / M.m00;
-            int posY = M.m01 / M.m00; 
-
-            // Determine the number of corners (vertices)
-            int numCorners = static_cast<int>(conPoly[i].size());
-
-            // Based on the characteristics, classify the shape
-            if (numCorners == 3) {
-                objectType = "triangle";
-            } else if (numCorners == 4) {
-                if (aspectRatio >= 0.95 && aspectRatio <= 1.05) {
-                    objectType = "square";
-                } else {
-                    objectType = "rectangle";
-                }
-            } else if (numCorners > 4 && numCorners < 6) {
-                objectType = "half-circle";
-            } else if (numCorners >= 6) {
-                objectType = "circle";
-            } 
-
-            if (objectType == shape) {
-                // Draw the contour
-                drawContours(image, conPoly, i, Scalar(0, 0, 0), 2); 
-
-                // Draw a circle at the middle of the shape
-                circle(image, Point(posX, posY), 5, Scalar(0, 0, 0), -1); // -1 for a filled circle
-
-                // Display the X and Y coordinates at the circle
-                stringstream ss;
-                ss << "X: " << posX << ", Y: " << posY;
-                cout << ss.str() << endl;
-                putText(image, ss.str(), Point(posX - 50, posY - 10), FONT_HERSHEY_SIMPLEX, 0.6, Scalar(0, 0, 0), 1);
-
-                // Display the surface area
-                cout << "Contour " << shape << " Area: " << area << endl;
-
-                // Calculate and print the execution time in seconds
-                clock_t end = clock(); // Stop measuring time
-                double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
-                cout << "Execution Time: " << elapsed_time << " seconds" << endl;
-            }
-        }
+        const char *filename = argv[1];
+        detector.initializeCombinationsFromFile(filename);
     }
-}
-
-bool processShapeColor(const string& shape, const string& color, vector<ShapeColorCombination>& combinations) {
-    // Validate the "shape" component
-    if (isValidShape(shape)) {
-        // Validate the "color" component
-        if (isValidColor(color)) {
-            // Save the combination
-            ShapeColorCombination combination;
-            combination.shape = shape;
-            combination.color = color;
-            combinations.push_back(combination);
-            cout << "Shape: " << shape << ", Color: " << color << endl;
-            return true;
-        } else {
-            cerr << "Invalid color. Supported colors: green, pink, orange, yellow." << endl;
-        }
-    } else {
-        cerr << "Invalid shape. Supported shapes: circle, half-circle, rectangle, square, triangle." << endl;
-    }
-    return false;
-}
-
-bool processFileInput(const char* filename, vector<ShapeColorCombination>& combinations) {
-    ifstream file(filename);
-
-    if (!file) {
-        cerr << "Error: Unable to open file." << endl;
-        return false;
+    else
+    {
+        detector.initializeCombinationsFromInteractiveInput();
     }
 
-    string line;
-    while (getline(file, line)) {
-        // Check if the line is empty or starts with a #
-        if (line.empty() || line[0] == '#') {
-            continue; // Skip empty lines and comments
-        }
+    VideoCapture cap(0); // Declaring an object to capture a stream of frames from the default camera
 
-        stringstream ss(line);
-        string shape, color;
-
-        if (ss >> shape >> color) {
-            processShapeColor(shape, color, combinations);
-        } else {
-            cerr << "Invalid message format. Please use '[shape] [color]' format." << endl;
-        }
-    }
-
-    file.close();
-    return true;
-}
-
-void processInteractiveInput(vector<ShapeColorCombination>& combinations) {
-    string input;
-    while (true) {
-        cout << "Enter a message ([shape] [color], or 'exit' to quit): ";
-        getline(cin, input);
-
-        if (input == "exit") {
-            cout << "Exiting the program." << endl;
-            break;
-        } else {
-            stringstream ss(input);
-            string shape, color;
-
-            if (ss >> shape >> color) {
-                processShapeColor(shape, color, combinations);
-            } else {
-                cerr << "Invalid message format. Please use '[shape] [color]' format." << endl;
-            }
-        }
-        // Clear the input buffer
-        cin.clear();
-    }
-}
-
-void processShapeColorCombination(const ShapeColorCombination& combination, Mat& image) {
-    Mat img_colorfiltered, img_processed;
-
-    // clock_t start = clock(); // Start measuring time
-    // cout << "Desired Shape: " << combination.shape << ", Desired Color: " << combination.color << endl;
-    img_colorfiltered = filterColor(image, combination.color);
-    img_processed = processingImage(img_colorfiltered);
-    getContours(img_processed, image, combination.shape);
-    // clock_t end = clock(); // Stop measuring time
-}
-
-void processShapeColorCombinations(const vector<ShapeColorCombination>& combinations, Mat& image) {
-    // Process each ShapeColorCombination
-    for (const auto& combination : combinations) {
-        processShapeColorCombination(combination, image);
-    }
-}
-
-
-
-int main(int argc, char** argv )
-{
-    VideoCapture cap(0); //Declaring an object to capture stream of frames from default camera
-
-    //This section prompt an error message if no video stream is found//
     if (!cap.isOpened())
     {
         cout << "No video stream detected" << endl;
         system("pause");
-        return-1;
+        return -1;
     }
 
-    // Read an image.
-    Mat image = imread("../Neon_shapes.png");
-
-    // Check for no data
-    if (! image.data ) 
-    {
-        cout << "Could not open or find the image.\n";
-        return -1; // unsuccessful
-    }
-
-    // Vector to store the saved shape and color combinations
-    vector<ShapeColorCombination> combinations;
-
-    // Check if a filename is provided as a command-line argument
-    if (argc > 1) {
-        const char* filename = argv[1];
-        if (!processFileInput(filename, combinations)) {
-            return 1;
-        } 
-    } else {
-        // Interactive mode
-        processInteractiveInput(combinations);
-    }
-
-    start = clock(); // Start measuring time
-
-    while (true) 
+    while (true)
     {
         Mat frame;
         cap >> frame;
-        if (frame.empty()){ 
+        if (frame.empty())
+        {
             break;
         }
-        processShapeColorCombinations(combinations, frame);
+
+        detector.processFrame(frame);
 
         imshow("Video Player", frame);
 
-        char c = (char)waitKey(25);//Allowing 25 milliseconds frame processing time and initiating break condition
-        if (c == 27){ //If 'Esc' is entered break the loop//
+        char c = (char)waitKey(500); // Allowing 25 milliseconds frame processing time and initiating a break condition
+        if (c == 27)
+        { // If 'Esc' is entered, break the loop
             break;
         }
     }
-    cap.release(); //Releasing the buffer memory
-
-    // Find all provided shape & color combinations in the image
-    // processShapeColorCombinations(combinations, image);
-
-    // Show the image in window.
-    // imshow("image", image);
-    // waitKey(0);
+    cap.release(); // Releasing the buffer memory
 
     return 0;
 }

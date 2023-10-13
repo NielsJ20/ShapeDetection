@@ -10,7 +10,7 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 # Declare the executable target built from your sources
-add_executable( OpenCVImageDetection main.cpp )
+add_executable( OpenCVImageDetection main.cpp ShapeColorDetector.cpp)
 
 # Link your application with OpenCV libraries
 target_link_libraries( OpenCVImageDetection ${OpenCV_LIBS} )
